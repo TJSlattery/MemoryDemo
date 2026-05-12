@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Chainlit runtime artifacts
+chainlit_ui/.files/
+chainlit_ui/.chainlit/translations/
+*.db
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
