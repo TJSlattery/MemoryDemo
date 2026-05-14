@@ -18,7 +18,8 @@ from langgraph.store.mongodb import MongoDBStore, create_vector_index_config
 from langgraph.utils.config import get_config
 from pymongo import MongoClient
 
-from grove_llm import create_grove_chat_model
+from llm import create_chat_model
+from memory.db import DB_NAME
 
 # Initialize embedding model
 embedding_model = VoyageAIEmbeddings(
@@ -72,13 +73,14 @@ def create_memory_agent(mongodb_uri: str, model=None):
     """Create an agent with MongoDB-backed memory using custom tools.
 
     `model` may be a chat model instance or a string model identifier.
-    String identifiers are routed through the Grove proxy.
+    String identifiers are routed through the configured LLM provider
+    (see ``llm.create_chat_model``).
     """
 
     if model is None:
         model = os.getenv("model", "claude-haiku-4-5")
     if isinstance(model, str):
-        model = create_grove_chat_model(model)
+        model = create_chat_model(model)
 
     system_prompt = """You are a helpful AI assistant with memory capabilities.
 
@@ -100,7 +102,7 @@ Example:
 Your memory persists across conversations, so you can remember users over time. Be conversational and helpful!"""
 
     client = MongoClient(mongodb_uri)
-    db = client["agent_memory_simple"]
+    db = client[DB_NAME]
     collection = db["memories"]
 
     store = MongoDBStore(
@@ -110,7 +112,7 @@ Your memory persists across conversations, so you can remember users over time. 
     )
 
     memory_tools = create_memory_tools(store)
-    checkpointer = MongoDBSaver(client, db_name="agent_memory_simple")
+    checkpointer = MongoDBSaver(client, db_name=DB_NAME)
 
     agent = create_agent(
         model,

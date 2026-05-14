@@ -1,18 +1,29 @@
 """
 Interactive REPL for the MongoDB-backed memory agent.
 
-Usage:
-    python main.py
-    python main.py --user alice --thread morning-chat
+Early prototype kept for reference; the active app is the Chainlit UI under
+``chainlit_ui/``.
+
+Usage (from the project root):
+    python examples/prototype/main.py
+    python examples/prototype/main.py --user alice --thread morning-chat
 """
 
 import argparse
 import os
+import sys
 import uuid
+from pathlib import Path
+
+# Make the project root importable so ``agent.py`` (next to this file) can
+# resolve ``llm`` from the project root when launched from any cwd.
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
 
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(_PROJECT_ROOT / ".env")
 
 from agent import create_memory_agent
 

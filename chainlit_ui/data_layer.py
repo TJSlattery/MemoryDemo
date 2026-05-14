@@ -43,7 +43,7 @@ class MongoDBDataLayer(BaseDataLayer):
     def __init__(
         self,
         mongodb_uri: str,
-        db_name: str = "agent_memory_simple",
+        db_name: str = "pm_agent_memory",
         collection_prefix: str = "cl_",
         user_thread_limit: int = 1000,
     ):
