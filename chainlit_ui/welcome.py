@@ -15,12 +15,13 @@ from memory.db import (
 )
 
 # Per-project accent (left border) so the three projects are visually distinct.
+# Colours pulled from the MongoDB LeafyGreen palette (mongodb.design).
 _PROJECT_ACCENT = {
-    "PROJ-ATLAS": "#3b82f6",   # blue
-    "PROJ-MOBILE": "#10b981",  # green
-    "PROJ-REPORT": "#f59e0b",  # amber
+    "PROJ-ATLAS": "#00684A",   # Forest Green (MDB primary)
+    "PROJ-MOBILE": "#00ED64",  # Mint
+    "PROJ-REPORT": "#016BF8",  # Blue
 }
-_DEFAULT_ACCENT = "#6366f1"
+_DEFAULT_ACCENT = "#00684A"
 
 _GRID_OPEN = (
     '<div style="display:flex;flex-wrap:wrap;gap:12px;margin:8px 0 16px 0;">'
@@ -101,15 +102,15 @@ WELCOME_PROMPTS: list[tuple[str, str]] = [
 
 def build_welcome_html() -> str:
     intro = (
-        "👋 I'm **Mr. Anderson**, the PM assistant for **Tom** at **Northwind Robotics**. "
+        "👋 I'm **Mr. Anderson**, the PM assistant for **Tom** at **Leafy Technologies**. "
         "Three agents (Coordinator + Retrieval + Writer) over five MongoDB Atlas-backed memory types. "
         "Click a quick-action below, or type `/help` for slash commands."
     )
     sections = [
         intro,
         _projects_section(),
-        _people_section("person", "Team", "👤", "#8b5cf6"),
-        _people_section("stakeholder", "Stakeholders", "⭐", "#ec4899"),
+        _people_section("person", "Team", "👤", "#13AA52"),       # MDB green-base
+        _people_section("stakeholder", "Stakeholders", "⭐", "#1254B7"),  # MDB blue-dark
         "_Tip: click **New Chat** in the sidebar (or run `/welcome`) to bring this view back._",
     ]
     return "\n\n".join(s for s in sections if s)

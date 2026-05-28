@@ -1,8 +1,8 @@
-"""Northwind Robotics demo dataset.
+"""Leafy Technologies demo dataset.
 
 Pure data, no imports from `memory.*`. Loaded by `memory.seed`.
 
-Persona: Tom, Senior PM at Northwind Robotics, owns three
+Persona: Tom, Senior PM at Leafy Technologies, owns three
 in-flight initiatives (Atlas Migration, Mobile App v2, Reporting Revamp).
 """
 
@@ -16,7 +16,7 @@ PERSONA = {
     "user_id": "admin",
     "display_name": "Tom",
     "title": "Senior Project Manager",
-    "company": "Northwind Robotics",
+    "company": "Leafy Technologies",
 }
 
 # ── Semantic facts ────────────────────────────────────────────────────────
@@ -41,8 +41,8 @@ PROJECTS = [
 ]
 
 GLOSSARY = [
-    ("northwind_robotics", "Northwind Robotics", "Mid-sized industrial robotics company. ~400 employees. Tom's employer."),
-    ("prj_prefix", "PRJ-", "Jira ticket prefix used across all Northwind engineering projects."),
+    ("leafy_technologies", "Leafy Technologies", "Mid-sized technology company. ~400 employees. Tom's employer."),
+    ("prj_prefix", "PRJ-", "Jira ticket prefix used across all Leafy engineering projects."),
     ("billing_service", "billing service", "Internal Python service that issues invoices and tracks subscription usage. Currently runs on a self-hosted MongoDB replica set."),
     ("flutter_decision", "Flutter framework", "Cross-platform UI framework adopted for Mobile App v2 in place of React Native."),
 ]

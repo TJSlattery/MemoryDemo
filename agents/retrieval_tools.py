@@ -17,14 +17,20 @@ from memory.schemas import SharedMemory
 
 
 @tool
-def recall_session_state() -> dict:
+def recall_session_state(reason: str) -> dict:
     """Read the working-memory snapshot for the current session: what the PM
-    is currently focused on, the active project/task, and any scratchpad notes."""
-    return get_memory_manager().read_session_context(get_session_id())
+    is currently focused on, the active project/task, and any scratchpad notes.
+
+    `reason` is a one-sentence first-person rationale (≤20 words) shown in
+    the memory-trace UI — explain *why* you're checking working memory."""
+    return get_memory_manager().read_session_context(
+        get_session_id(), reason=reason
+    )
 
 
 @tool
 def read_handoff(
+    reason: str,
     slot: Optional[str] = None,
     project_key: Optional[str] = None,
     limit: Optional[int] = None,
@@ -32,17 +38,25 @@ def read_handoff(
     """Read the inter-agent shared-memory slots for the current session
     (payloads passed between Coordinator / Retrieval / Writer), newest first.
 
+    `reason` is a one-sentence first-person rationale (≤20 words) shown in
+    the memory-trace UI — explain *why* you're reading this slot.
+
     Optional `slot` filters to one of: last_search_results, handoff_payload,
     disambiguation, scratch, plan, findings, goal. Pass `project_key` to also
     pick up any long-lived project-scoped slots (e.g. strategic goals). Pass
     `limit` to cap how many entries are returned."""
     return get_memory_manager().read_shared(
-        get_session_id(), slot=slot, project_key=project_key, limit=limit,
+        get_session_id(),
+        slot=slot,
+        project_key=project_key,
+        limit=limit,
+        reason=reason,
     )
 
 
 @tool
 def share_with(
+    reason: str,
     slot: str,
     to_agent: str,
     payload: dict[str, Any],
@@ -50,6 +64,9 @@ def share_with(
 ) -> str:
     """Post a structured payload to the inter-agent shared-memory slot for
     this session so the next agent can consume it verbatim (no prose loss).
+
+    `reason` is a one-sentence first-person rationale (≤20 words) shown in
+    the memory-trace UI — explain *why* you're posting this payload.
 
     Use `slot='findings'` (defaults to append mode) when handing structured
     rows — tickets, risks, owners — to the Writer so it can act on the exact
@@ -64,43 +81,63 @@ def share_with(
         to_agent=to_agent,
         payload=payload,
     )
-    return get_memory_manager().write_shared(item, mode=mode)
+    return get_memory_manager().write_shared(item, mode=mode, reason=reason)
 
 
 @tool
-def search_facts(query: str, kind: Optional[str] = None, limit: int = 5) -> list[dict]:
+def search_facts(
+    reason: str, query: str, kind: Optional[str] = None, limit: int = 5
+) -> list[dict]:
     """Vector-search semantic memory (long-term facts: people, projects,
     glossary, decisions, risks, preferences, epics, features, stories).
     Pass `kind` to scope to one of: person, team, project, stakeholder,
-    glossary, decision, risk, preference, epic, feature, story."""
+    glossary, decision, risk, preference, epic, feature, story.
+
+    `reason` is a one-sentence first-person rationale (≤20 words) shown in
+    the memory-trace UI — explain *why* you're looking this up."""
     return get_memory_manager().search_semantic(
-        get_user_id(), query, limit=limit, kind=kind
+        get_user_id(), query, limit=limit, kind=kind, reason=reason
     )
 
 
 @tool
-def search_history(query: str, limit: int = 5) -> list[dict]:
+def search_history(reason: str, query: str, limit: int = 5) -> list[dict]:
     """Vector-search episodic memory (the project timeline: tickets created,
-    decisions logged, standups, status reports, sprints planned, risks)."""
-    return get_memory_manager().search_episodes(get_user_id(), query, limit=limit)
+    decisions logged, standups, status reports, sprints planned, risks).
+
+    `reason` is a one-sentence first-person rationale (≤20 words) shown in
+    the memory-trace UI — explain *why* you're searching the timeline."""
+    return get_memory_manager().search_episodes(
+        get_user_id(), query, limit=limit, reason=reason
+    )
 
 
 @tool
-def recent_history(event_type: Optional[str] = None, limit: int = 10) -> list[dict]:
+def recent_history(
+    reason: str, event_type: Optional[str] = None, limit: int = 10
+) -> list[dict]:
     """List the most recent episodic events. Optional `event_type` filters to
     one of: ticket_created, calendar_invite, story_created, feature_created,
     epic_created, task_status_changed, decision_logged, risk_logged, standup,
-    status_report, sprint_planned, conversation_summary, note."""
+    status_report, sprint_planned, conversation_summary, note.
+
+    `reason` is a one-sentence first-person rationale (≤20 words) shown in
+    the memory-trace UI — explain *why* you need the recent timeline."""
     return get_memory_manager().recent_episodes(
-        get_user_id(), limit=limit, event_type=event_type
+        get_user_id(), limit=limit, event_type=event_type, reason=reason
     )
 
 
 @tool
-def find_workflow(query: str, limit: int = 3) -> list[dict]:
+def find_workflow(reason: str, query: str, limit: int = 3) -> list[dict]:
     """Vector-search procedural memory for a workflow / template that
-    matches the user's request (e.g. 'how do I run the standup?')."""
-    return get_memory_manager().search_procedures(get_user_id(), query, limit=limit)
+    matches the user's request (e.g. 'how do I run the standup?').
+
+    `reason` is a one-sentence first-person rationale (≤20 words) shown in
+    the memory-trace UI — explain *why* you need a workflow."""
+    return get_memory_manager().search_procedures(
+        get_user_id(), query, limit=limit, reason=reason
+    )
 
 
 @tool
@@ -114,15 +151,18 @@ def list_workflows() -> list[dict]:
 
 
 @tool
-def search_all(query: str, limit_per_type: int = 3) -> dict:
+def search_all(reason: str, query: str, limit_per_type: int = 3) -> dict:
     """Fan-out vector search across episodic + semantic + procedural memory.
-    Use this only for genuinely open-ended 'what do you know about X' questions."""
+    Use this only for genuinely open-ended 'what do you know about X' questions.
+
+    `reason` is a one-sentence first-person rationale (≤20 words) shown in
+    the memory-trace UI — explain *why* a fan-out search is warranted."""
     mm = get_memory_manager()
     user = get_user_id()
     return {
-        "semantic": mm.search_semantic(user, query, limit=limit_per_type),
-        "episodic": mm.search_episodes(user, query, limit=limit_per_type),
-        "procedural": mm.search_procedures(user, query, limit=limit_per_type),
+        "semantic": mm.search_semantic(user, query, limit=limit_per_type, reason=reason),
+        "episodic": mm.search_episodes(user, query, limit=limit_per_type, reason=reason),
+        "procedural": mm.search_procedures(user, query, limit=limit_per_type, reason=reason),
     }
 
 

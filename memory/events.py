@@ -28,6 +28,9 @@ class MemoryEvent:
     latency_ms: int = 0
     result_count: Optional[int] = None
     payload: dict[str, Any] = field(default_factory=dict)
+    # Full doc(s) read or written this op, captured for the UI's inspector
+    # panel. None for deletes and for callers that don't supply it.
+    data: Any = None
     timestamp: datetime = field(default_factory=datetime.utcnow)
     session_id: Optional[str] = None
     agent: Optional[str] = None

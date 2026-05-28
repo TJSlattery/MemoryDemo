@@ -70,7 +70,7 @@ DEMO_PROMPTS: list[tuple[str, str, str, str]] = [
     ),
 ]
 
-_DEMO_ACCENT = "#6366f1"
+_DEMO_ACCENT = "#00684A"  # MongoDB Forest Green
 
 
 def _demo_card(num: str, heading: str, blurb: str, prompt: str) -> str:

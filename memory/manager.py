@@ -45,7 +45,9 @@ class MemoryManager:
 
     # ── working memory ─────────────────────────────────────────────────
 
-    def read_session_context(self, session_id: str) -> dict[str, Any]:
+    def read_session_context(
+        self, session_id: str, *, reason: Optional[str] = None
+    ) -> dict[str, Any]:
         t0 = time.time()
         doc = get_collection(WORKING_COLLECTION).find_one(
             {"session_id": session_id}, {"_id": 0}
@@ -53,15 +55,21 @@ class MemoryManager:
         self._emit(
             op="read",
             memory_type="working",
-            description=f"session={session_id}",
+            description=reason or f"session={session_id}",
             latency_ms=int((time.time() - t0) * 1000),
             result_count=1 if doc else 0,
             session_id=session_id,
+            data=doc or None,
         )
         return doc
 
     def update_session_context(
-        self, session_id: str, user_id: str, updates: dict[str, Any]
+        self,
+        session_id: str,
+        user_id: str,
+        updates: dict[str, Any],
+        *,
+        reason: Optional[str] = None,
     ) -> dict[str, Any]:
         t0 = time.time()
         updates = {k: v for k, v in updates.items() if v is not None}
@@ -78,42 +86,54 @@ class MemoryManager:
         self._emit(
             op="write",
             memory_type="working",
-            description=f"updated {sorted(updates)}",
+            description=reason or f"updated {sorted(updates)}",
             latency_ms=int((time.time() - t0) * 1000),
             payload=updates,
             session_id=session_id,
+            data=doc,
         )
         return doc
 
-    def clear_session_context(self, session_id: str) -> None:
+    def clear_session_context(
+        self, session_id: str, *, reason: Optional[str] = None
+    ) -> None:
         get_collection(WORKING_COLLECTION).delete_one({"session_id": session_id})
         self._emit(
             op="delete",
             memory_type="working",
-            description=f"cleared session={session_id}",
+            description=reason or f"cleared session={session_id}",
             session_id=session_id,
         )
 
     # ── episodic memory ────────────────────────────────────────────────
 
-    def record_episode(self, episode: EpisodicMemory) -> str:
+    def record_episode(
+        self, episode: EpisodicMemory, *, reason: Optional[str] = None
+    ) -> str:
         t0 = time.time()
-        doc = episode.model_dump()
-        doc["embedding"] = embed_document(
+        clean_doc = episode.model_dump()
+        doc = {**clean_doc, "embedding": embed_document(
             f"{episode.event_type}: {episode.summary}"
-        )
+        )}
         result = get_collection(EPISODIC_COLLECTION).insert_one(doc)
+        clean_doc["_id"] = str(result.inserted_id)
         self._emit(
             op="write",
             memory_type="episodic",
-            description=f"{episode.event_type}: {episode.summary[:60]}",
+            description=reason or f"{episode.event_type}: {episode.summary[:60]}",
             latency_ms=int((time.time() - t0) * 1000),
             payload={"entities": episode.entities},
+            data=clean_doc,
         )
         return str(result.inserted_id)
 
     def search_episodes(
-        self, user_id: str, query: str, limit: int = 5
+        self,
+        user_id: str,
+        query: str,
+        limit: int = 5,
+        *,
+        reason: Optional[str] = None,
     ) -> list[dict[str, Any]]:
         t0 = time.time()
         results = vector_search(
@@ -131,14 +151,20 @@ class MemoryManager:
         self._emit(
             op="read",
             memory_type="episodic",
-            description=f"query={query!r}",
+            description=reason or f"query={query!r}",
             latency_ms=int((time.time() - t0) * 1000),
             result_count=len(results),
+            data=results,
         )
         return results
 
     def recent_episodes(
-        self, user_id: str, limit: int = 10, event_type: Optional[str] = None
+        self,
+        user_id: str,
+        limit: int = 10,
+        event_type: Optional[str] = None,
+        *,
+        reason: Optional[str] = None,
     ) -> list[dict[str, Any]]:
         t0 = time.time()
         q: dict[str, Any] = {"user_id": user_id}
@@ -156,30 +182,35 @@ class MemoryManager:
         self._emit(
             op="read",
             memory_type="episodic",
-            description=f"recent (type={event_type or 'any'})",
+            description=reason or f"recent (type={event_type or 'any'})",
             latency_ms=int((time.time() - t0) * 1000),
             result_count=len(results),
+            data=results,
         )
         return results
 
     # ── semantic memory ────────────────────────────────────────────────
 
-    def upsert_semantic(self, fact: SemanticMemory) -> str:
+    def upsert_semantic(
+        self, fact: SemanticMemory, *, reason: Optional[str] = None
+    ) -> str:
         t0 = time.time()
-        doc = fact.model_dump()
-        doc["embedding"] = embed_document(fact.content)
+        clean_doc = fact.model_dump()
+        doc = {**clean_doc, "embedding": embed_document(fact.content)}
         result = get_collection(SEMANTIC_COLLECTION).find_one_and_update(
             {"user_id": fact.user_id, "kind": fact.kind, "key": fact.key},
             {"$set": doc},
             upsert=True,
             return_document=ReturnDocument.AFTER,
         )
+        clean_doc["_id"] = str(result["_id"])
         self._emit(
             op="write",
             memory_type="semantic",
-            description=f"{fact.kind}:{fact.key}",
+            description=reason or f"{fact.kind}:{fact.key}",
             latency_ms=int((time.time() - t0) * 1000),
             payload={"value": fact.value},
+            data=clean_doc,
         )
         return str(result["_id"])
 
@@ -189,6 +220,8 @@ class MemoryManager:
         query: str,
         limit: int = 5,
         kind: Optional[str] = None,
+        *,
+        reason: Optional[str] = None,
     ) -> list[dict[str, Any]]:
         t0 = time.time()
         flt: dict[str, Any] = {"user_id": user_id}
@@ -204,9 +237,10 @@ class MemoryManager:
         self._emit(
             op="read",
             memory_type="semantic",
-            description=f"query={query!r} kind={kind or 'any'}",
+            description=reason or f"query={query!r} kind={kind or 'any'}",
             latency_ms=int((time.time() - t0) * 1000),
             result_count=len(results),
+            data=results,
         )
         return results
 
@@ -225,28 +259,37 @@ class MemoryManager:
 
     # ── procedural memory ──────────────────────────────────────────────
 
-    def upsert_procedure(self, proc: ProceduralMemory) -> str:
+    def upsert_procedure(
+        self, proc: ProceduralMemory, *, reason: Optional[str] = None
+    ) -> str:
         t0 = time.time()
-        doc = proc.model_dump()
-        doc["embedding"] = embed_document(
+        clean_doc = proc.model_dump()
+        doc = {**clean_doc, "embedding": embed_document(
             f"{proc.name}\n{proc.description}\n" + " ".join(proc.trigger_examples)
-        )
+        )}
         result = get_collection(PROCEDURAL_COLLECTION).find_one_and_update(
             {"user_id": proc.user_id, "name": proc.name},
             {"$set": doc},
             upsert=True,
             return_document=ReturnDocument.AFTER,
         )
+        clean_doc["_id"] = str(result["_id"])
         self._emit(
             op="write",
             memory_type="procedural",
-            description=f"workflow:{proc.name}",
+            description=reason or f"workflow:{proc.name}",
             latency_ms=int((time.time() - t0) * 1000),
+            data=clean_doc,
         )
         return str(result["_id"])
 
     def search_procedures(
-        self, user_id: str, query: str, limit: int = 3
+        self,
+        user_id: str,
+        query: str,
+        limit: int = 3,
+        *,
+        reason: Optional[str] = None,
     ) -> list[dict[str, Any]]:
         t0 = time.time()
         results = vector_search(
@@ -265,9 +308,10 @@ class MemoryManager:
         self._emit(
             op="read",
             memory_type="procedural",
-            description=f"query={query!r}",
+            description=reason or f"query={query!r}",
             latency_ms=int((time.time() - t0) * 1000),
             result_count=len(results),
+            data=results,
         )
         return results
 
@@ -291,6 +335,8 @@ class MemoryManager:
         self,
         item: SharedMemory,
         mode: Optional[str] = None,
+        *,
+        reason: Optional[str] = None,
     ) -> str:
         """Write a shared-memory doc.
 
@@ -324,16 +370,18 @@ class MemoryManager:
             new_id = str(result["_id"])
 
         scope_tag = item.scope if item.scope != "session" else ""
+        doc["_id"] = new_id
         self._emit(
             op="write",
             memory_type="shared",
-            description=(
+            description=reason or (
                 f"slot={item.slot} {item.from_agent}→{item.to_agent}"
                 f" mode={mode}" + (f" {scope_tag}" if scope_tag else "")
             ),
             latency_ms=int((time.time() - t0) * 1000),
             session_id=item.session_id,
             agent=item.from_agent,
+            data=doc,
         )
         return new_id
 
@@ -344,6 +392,7 @@ class MemoryManager:
         *,
         project_key: Optional[str] = None,
         limit: Optional[int] = None,
+        reason: Optional[str] = None,
     ) -> list[dict[str, Any]]:
         """Read shared-memory slots, newest first.
 
@@ -373,13 +422,14 @@ class MemoryManager:
         self._emit(
             op="read",
             memory_type="shared",
-            description=(
+            description=reason or (
                 f"slot={slot or 'any'}"
                 + (f" project={project_key}" if project_key else "")
             ),
             latency_ms=int((time.time() - t0) * 1000),
             result_count=len(results),
             session_id=session_id,
+            data=results,
         )
         return results
 
@@ -388,6 +438,7 @@ class MemoryManager:
         session_id: Optional[str] = None,
         *,
         project_key: Optional[str] = None,
+        reason: Optional[str] = None,
     ) -> None:
         flt: dict[str, Any] = {}
         if session_id:
@@ -400,7 +451,7 @@ class MemoryManager:
         self._emit(
             op="delete",
             memory_type="shared",
-            description=(
+            description=reason or (
                 f"cleared session={session_id}"
                 + (f" project={project_key}" if project_key else "")
             ),

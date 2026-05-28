@@ -93,6 +93,7 @@ def ask_writer(instruction: str) -> str:
 
 @tool
 def post_plan(
+    reason: str,
     to_agent: str,
     payload: dict[str, Any],
     slot: str = "plan",
@@ -101,6 +102,10 @@ def post_plan(
     mode: Optional[str] = None,
 ) -> str:
     """Post a plan, goal, or instruction to shared memory before delegating.
+
+    `reason` is a one-sentence first-person rationale (≤20 words) shown in
+    the memory-trace UI — explain *why* you're posting this, e.g. "I'm
+    laying out the three steps so Retrieval and Writer share one plan".
 
     Use this to give sub-agents structured context they should consult before
     acting (e.g. the multi-step plan you've broken a request into, or a list
@@ -117,11 +122,12 @@ def post_plan(
         scope=scope,  # type: ignore[arg-type]
         project_key=project_key,
     )
-    return get_memory_manager().write_shared(item, mode=mode)
+    return get_memory_manager().write_shared(item, mode=mode, reason=reason)
 
 
 @tool
 def read_shared_memory(
+    reason: str,
     slot: Optional[str] = None,
     project_key: Optional[str] = None,
     limit: Optional[int] = None,
@@ -131,12 +137,20 @@ def read_shared_memory(
     the structured findings/handoffs they posted (rather than re-parsing
     their prose answer).
 
+    `reason` is a one-sentence first-person rationale (≤20 words) shown in
+    the memory-trace UI — explain *why* you're reading this slot, e.g.
+    "I need Retrieval's findings to hand the exact ticket IDs to Writer".
+
     Optional `slot` filters to one of: last_search_results, handoff_payload,
     disambiguation, scratch, plan, findings, goal. Pass `project_key` to
     also pick up long-lived project-scoped slots (e.g. strategic goals).
     Pass `limit` to cap how many entries are returned."""
     return get_memory_manager().read_shared(
-        get_session_id(), slot=slot, project_key=project_key, limit=limit,
+        get_session_id(),
+        slot=slot,
+        project_key=project_key,
+        limit=limit,
+        reason=reason,
     )
 
 
@@ -144,12 +158,15 @@ def read_shared_memory(
 
 
 @tool
-def list_in_flight_tasks(project: Optional[str] = None) -> dict:
+def list_in_flight_tasks(reason: str, project: Optional[str] = None) -> dict:
     """Return the headline 'what's in flight right now' snapshot:
     open Jira tickets (In Progress + In Review + To Do), upcoming
     calendar events in the next 14 days, and the 5 most recent episodic
     events. Optional `project` filters Jira to one project key
     (e.g. 'PROJ-ATLAS').
+
+    `reason` is a one-sentence first-person rationale (≤20 words) shown in
+    the memory-trace UI — explain *why* you're pulling this snapshot.
     """
     from datetime import datetime, timedelta
 
@@ -172,7 +189,9 @@ def list_in_flight_tasks(project: Optional[str] = None) -> dict:
         .limit(20)
     )
 
-    recent = get_memory_manager().recent_episodes(get_user_id(), limit=5)
+    recent = get_memory_manager().recent_episodes(
+        get_user_id(), limit=5, reason=reason
+    )
 
     return {
         "open_tickets": tickets,

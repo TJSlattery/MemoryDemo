@@ -1,4 +1,4 @@
-"""Load the Northwind Robotics demo dataset into MongoDB Atlas.
+"""Load the Leafy Technologies demo dataset into MongoDB Atlas.
 
 Idempotent: every record is upserted on a stable key, so re-running
 overwrites in place rather than duplicating. Existing non-seed records

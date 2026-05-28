@@ -20,23 +20,25 @@ from memory.db import (
 )
 
 # ── palette ───────────────────────────────────────────────────────────────
+# MongoDB LeafyGreen design tokens (mongodb.design) so the Gantt picks up
+# the same first-party look as the rest of the UI.
 STATUS_COLOR = {
-    "To Do":       "#94a3b8",  # slate-400
-    "In Progress": "#f59e0b",  # amber-500
-    "In Review":   "#3b82f6",  # blue-500
-    "Done":        "#10b981",  # emerald-500
-    "Blocked":     "#ef4444",  # red-500
+    "To Do":       "#889397",  # MDB Gray Base
+    "In Progress": "#FFC010",  # MDB Yellow Base
+    "In Review":   "#016BF8",  # MDB Blue Base
+    "Done":        "#00684A",  # MDB Forest Green
+    "Blocked":     "#DB3030",  # MDB Red Base
 }
-EVENT_COLOR     = "#8b5cf6"   # violet-500 (calendar meetings)
-MILESTONE_COLOR = "#f43f5e"   # rose-500 (diamond markers)
-TODAY_COLOR     = "#dc2626"   # red-600
-RISK_BORDER     = "#ef4444"
+EVENT_COLOR     = "#5E0C90"   # MDB Purple Dark (calendar meetings)
+MILESTONE_COLOR = "#970606"   # MDB Red Dark (diamond markers)
+TODAY_COLOR     = "#DB3030"   # MDB Red Base
+RISK_BORDER     = "#DB3030"
 PROJECT_COLOR = {
-    "PROJ-ATLAS":  "#0ea5e9",  # sky-500
-    "PROJ-MOBILE": "#14b8a6",  # teal-500
-    "PROJ-REPORT": "#6366f1",  # indigo-500
+    "PROJ-ATLAS":  "#00684A",  # MDB Forest Green
+    "PROJ-MOBILE": "#00ED64",  # MDB Mint
+    "PROJ-REPORT": "#1254B7",  # MDB Blue Dark
 }
-ASSIGNEE_FALLBACK = "#64748b"
+ASSIGNEE_FALLBACK = "#3D4F58"  # MDB Gray Dark
 
 # Heuristic ticket durations when no due_date is recorded yet.
 PRIORITY_DAYS = {"High": 14, "Medium": 21, "Low": 30}
@@ -257,7 +259,7 @@ def build_gantt_figure(
                             line=dict(width=1.5, color="white")),
                 text=ms_text,
                 textposition="top center",
-                textfont=dict(size=10, color="#475569"),
+                textfont=dict(size=10, color="#3D4F58"),
                 hovertext=ms_hover,
                 hoverinfo="text",
             )
@@ -286,9 +288,9 @@ def build_gantt_figure(
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
         title=dict(text=f"<b>{title}</b>", x=0.02, xanchor="left",
-                   font=dict(size=16, color="#0f172a")),
-        font=dict(family="Inter, -apple-system, system-ui, sans-serif",
-                  size=12, color="#334155"),
+                   font=dict(size=16, color="#001E2B")),
+        font=dict(family="Euclid Circular A, Inter, -apple-system, system-ui, sans-serif",
+                  size=12, color="#21313C"),
         margin=dict(l=180, r=40, t=70, b=40),
         height=height,
         autosize=True,
@@ -296,13 +298,13 @@ def build_gantt_figure(
         legend=dict(orientation="h", yanchor="bottom", y=1.02,
                     xanchor="right", x=1, bgcolor="rgba(0,0,0,0)",
                     font=dict(size=11)),
-        hoverlabel=dict(bgcolor="white", bordercolor="#e2e8f0",
-                        font=dict(family="Inter", size=12, color="#1e293b")),
+        hoverlabel=dict(bgcolor="white", bordercolor="#E8EDEB",
+                        font=dict(family="Euclid Circular A, Inter", size=12, color="#001E2B")),
         xaxis=dict(
             type="date",
             tickformat="%b %-d",
             showgrid=True,
-            gridcolor="rgba(148,163,184,0.18)",
+            gridcolor="rgba(136,147,151,0.20)",
             ticks="outside",
             tickfont=dict(size=11),
             range=[min(r["start"] for r in rows) if rows else now, window_end],

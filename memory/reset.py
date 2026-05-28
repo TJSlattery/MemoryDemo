@@ -5,7 +5,7 @@ Wipes:
   * every mock business collection (Jira / calendar / projects / tasks)
   * LangGraph checkpointer collections (so the agent forgets prior turns)
 
-Then optionally re-seeds the Northwind Robotics dataset.
+Then optionally re-seeds the Leafy Technologies dataset.
 
 Usage:
     python -m memory.reset                # wipe + re-seed (default)
@@ -82,4 +82,4 @@ if __name__ == "__main__":
     for k, v in deleted.items():
         print(f"  {k:<28} {v}")
     if not args.no_seed:
-        print("Re-seeded Northwind Robotics dataset.")
+        print("Re-seeded Leafy Technologies dataset.")

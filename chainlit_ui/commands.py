@@ -29,7 +29,7 @@ HELP_TEXT = """\
 | `/roadmap` | Snapshot of open tickets, upcoming meetings, recent activity |
 | `/gantt [project] [days]` | Render an interactive Plotly Gantt of work in flight |
 | `/memory <type>` | Inspect a memory store. Type ∈ working / episodic / semantic / procedural / shared / jira / calendar / counts / all |
-| `/reset` | Wipe **everything** and re-seed the Northwind dataset (asks first) |
+| `/reset` | Wipe **everything** and re-seed the Leafy Technologies dataset (asks first) |
 """
 
 
@@ -202,6 +202,6 @@ async def cmd_reset() -> None:
         cl.Action(name="reset_cancel", label="Cancel", payload={"go": False}),
     ]
     await cl.Message(
-        content="⚠️ This will **delete all memory + mock business data + LangGraph checkpoints** and re-seed the Northwind dataset. Confirm?",
+        content="⚠️ This will **delete all memory + mock business data + LangGraph checkpoints** and re-seed the Leafy Technologies dataset. Confirm?",
         actions=actions,
     ).send()

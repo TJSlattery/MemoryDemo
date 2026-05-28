@@ -4,10 +4,11 @@ Run from the project root with:
     chainlit run chainlit_ui/app.py
 """
 
+import json
 import os
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from dotenv import load_dotenv
 
@@ -84,16 +85,66 @@ def _format_event(e: MemoryEvent) -> str:
     icon = _MEMORY_ICON.get(e.memory_type, "•")
     op = e.op.upper()
     latency = f"{e.latency_ms}ms" if e.latency_ms else ""
-    count = f" → {e.result_count}" if e.result_count is not None else ""
+    if e.result_count is None:
+        count = ""
+    elif e.result_count == 0:
+        count = " — _no results_"
+    elif e.result_count == 1:
+        count = " — _1 result_"
+    else:
+        count = f" — _{e.result_count} results_"
     return f"{icon} `{e.memory_type:<10}` **{op}**  {e.description}{count}  _{latency}_"
+
+
+def _strip_embeddings(obj: Any) -> Any:
+    """Recursively drop `embedding` fields so the inspector stays readable."""
+    if isinstance(obj, dict):
+        return {k: _strip_embeddings(v) for k, v in obj.items() if k != "embedding"}
+    if isinstance(obj, list):
+        return [_strip_embeddings(v) for v in obj]
+    return obj
+
+
+def _to_json(data: Any) -> str:
+    return json.dumps(_strip_embeddings(data), indent=2, default=str)
+
+
+def _event_step_name(e: MemoryEvent) -> str:
+    """Compact plain-text label for a per-event collapsible step."""
+    icon = _MEMORY_ICON.get(e.memory_type, "•")
+    if e.result_count is None:
+        count = ""
+    elif e.result_count == 0:
+        count = " — no results"
+    elif e.result_count == 1:
+        count = " — 1 result"
+    else:
+        count = f" — {e.result_count} results"
+    latency = f"  ({e.latency_ms}ms)" if e.latency_ms else ""
+    return f"{icon} {e.memory_type:<10} — {e.description}{count}{latency}"
+
+
+async def _render_event_steps(events: list[MemoryEvent]) -> None:
+    for e in events:
+        async with cl.Step(name=_event_step_name(e), type="tool") as sub:
+            sub.output = f"```json\n{_to_json(e.data)}\n```"
 
 
 async def _render_trace(events: list[MemoryEvent]) -> None:
     if not events:
         return
-    lines = [_format_event(e) for e in events]
-    async with cl.Step(name=f"🧠 Memory ops ({len(events)})", type="tool") as step:
-        step.output = "\n\n".join(lines)
+    reads = [e for e in events if e.op == "read" and e.data is not None]
+    writes = [e for e in events if e.op == "write" and e.data is not None]
+    if reads:
+        async with cl.Step(
+            name=f"🧠 Memories Read ({len(reads)})", type="tool"
+        ):
+            await _render_event_steps(reads)
+    if writes:
+        async with cl.Step(
+            name=f"🧠 Memories Written ({len(writes)})", type="tool"
+        ):
+            await _render_event_steps(writes)
 
 
 # ── streaming helpers ──────────────────────────────────────────────────────
@@ -135,11 +186,45 @@ async def _drain_artifacts(artifacts: list[ChartArtifact]) -> None:
         await cl.Message(content=caption, elements=elements).send()
 
 
-async def _send_tool_step(tool_msg) -> None:
+async def _send_tool_step(tool_msg, reason: Optional[str] = None) -> None:
     name = getattr(tool_msg, "name", "tool")
     label, icon = _TOOL_DISPLAY.get(name, (name, "wrench"))
+    body = str(getattr(tool_msg, "content", ""))
+    if reason:
+        body = f"> 💭 _{reason}_\n\n{body}"
     async with cl.Step(name=label, type="tool", icon=icon) as step:
-        step.output = str(getattr(tool_msg, "content", ""))
+        step.output = body
+
+
+def _harvest_tool_args(
+    chunk,
+    args_by_id: dict[str, dict[str, Any]],
+    chunk_buf: dict[int, dict[str, Any]],
+) -> None:
+    """Accumulate streamed tool-call args by `tool_call_id` so we can look up
+    the `reason` argument when the matching ToolMessage arrives.
+
+    Handles both the aggregated `tool_calls` field (parsed dict per call) and
+    Anthropic's incremental `tool_call_chunks` (string deltas keyed by index).
+    """
+    for tc in getattr(chunk, "tool_calls", None) or []:
+        tc_id = tc.get("id")
+        args = tc.get("args")
+        if tc_id and isinstance(args, dict):
+            args_by_id[tc_id] = args
+
+    for c in getattr(chunk, "tool_call_chunks", None) or []:
+        idx = c.get("index", 0)
+        entry = chunk_buf.setdefault(idx, {"id": None, "args_str": ""})
+        if c.get("id"):
+            entry["id"] = c["id"]
+        if c.get("args"):
+            entry["args_str"] += c["args"]
+        if entry["id"] and entry["args_str"]:
+            try:
+                args_by_id[entry["id"]] = json.loads(entry["args_str"])
+            except json.JSONDecodeError:
+                pass  # partial JSON — wait for more chunks
 
 
 def _thinking_html(label: str) -> str:
@@ -280,7 +365,7 @@ async def on_reset_confirm(action: cl.Action) -> None:
     await cl.Message(
         content=(
             f"✅ Reset complete. Deleted **{total}** documents and re-seeded the "
-            f"Northwind dataset.\n\n{summary or '_(nothing to delete)_'}\n\n"
+            f"Leafy Technologies dataset.\n\n{summary or '_(nothing to delete)_'}\n\n"
             "Start a new chat to clear conversation context."
         )
     ).send()
@@ -324,6 +409,11 @@ async def _handle_user_input(text: str) -> None:
     artifacts: list[ChartArtifact] = []
     unsubscribe_art = get_artifact_trace().subscribe(artifacts.append)
 
+    # Track tool-call args streamed on AI chunks so we can surface the
+    # `reason` argument on the matching tool-result step.
+    tool_args_by_id: dict[str, dict[str, Any]] = {}
+    tool_chunk_buf: dict[int, dict[str, Any]] = {}
+
     response: Optional[cl.Message] = None
     thinking = _Thinking()
     await thinking.show()
@@ -338,11 +428,15 @@ async def _handle_user_input(text: str) -> None:
                     await response.update()
                     response = None
                 await thinking.hide()
-                await _send_tool_step(chunk)
+                tc_id = getattr(chunk, "tool_call_id", "") or ""
+                reason = tool_args_by_id.get(tc_id, {}).get("reason")
+                await _send_tool_step(chunk, reason=reason)
                 await _drain_artifacts(artifacts)
                 # Tool returned; LLM is about to think again until the next chunk.
                 await thinking.show()
                 continue
+
+            _harvest_tool_args(chunk, tool_args_by_id, tool_chunk_buf)
 
             for piece in _iter_text(chunk):
                 await thinking.hide()

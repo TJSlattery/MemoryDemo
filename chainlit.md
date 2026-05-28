@@ -1,6 +1,6 @@
 # Mr. Anderson — PM Memory Demo
 
-A multi-agent project-management assistant for **Tom**, Senior PM at **Northwind Robotics**.
+A multi-agent project-management assistant for **Tom**, Senior PM at **Leafy Technologies**.
 Three agents (Coordinator + Retrieval + Writer) over five MongoDB Atlas-backed memory types.
 
 ## Memory at a glance
@@ -31,4 +31,4 @@ Every memory op fires into a live trace — watch the **🧠 Memory ops** chip a
 - `/help` — list commands
 - `/roadmap` — projects, open tickets, upcoming meetings, recent activity
 - `/memory <type>` — inspect working / episodic / semantic / procedural / shared / jira / calendar / counts / all
-- `/reset` — wipe everything and re-seed the Northwind dataset (asks first)
+- `/reset` — wipe everything and re-seed the Leafy Technologies dataset (asks first)
