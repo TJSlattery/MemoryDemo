@@ -9,7 +9,7 @@ patterns in a single LangGraph + MongoDB Atlas stack with a Chainlit UI.
 ```
 ┌──────────────┐      ┌────────────────┐      ┌──────────────┐
 │  Chainlit UI │────▶ │  Coordinator   │────▶ │  Retrieval   │  (read-only)
-│ (Mr.Anderson)│      │  Sonnet 4.5    │      └──────────────┘
+│ (Mr.Anderson)│      │ claude-sonnet  │      └──────────────┘
 └──────────────┘      │                │      ┌──────────────┐
         ▲             │                │────▶ │   Writer     │  (writes)
         │             └────────┬───────┘      └──────────────┘
@@ -82,6 +82,8 @@ pip install -r requirements.txt
 
 ### 3. Configure `.env`
 
+Create a `.env` file in the project root with your credentials:
+
 ```env
 # MongoDB Atlas
 MONGODB_URI=mongodb+srv://<user>:<pass>@<cluster>.mongodb.net/?retryWrites=true&w=majority
@@ -92,17 +94,27 @@ VOYAGE_API_KEY=...
 
 # Anthropic (default provider; streams tokens to the UI)
 ANTHROPIC_API_KEY=sk-ant-...
-# Optional: route through the Grove proxy instead (no streaming).
-# LLM_PROVIDER=grove
-# GROVE_API_KEY=...
-COORDINATOR_MODEL=claude-sonnet-4-5  # optional
-RETRIEVAL_MODEL=claude-haiku-4-5     # optional
-WRITER_MODEL=claude-haiku-4-5        # optional
 
 # Chainlit auth (single-user)
 CHAINLIT_USERNAME=admin
 CHAINLIT_PASSWORD=admin
-CHAINLIT_AUTH_SECRET=$(chainlit create-secret)
+CHAINLIT_AUTH_SECRET=...            # see below
+```
+
+Generate the Chainlit auth secret and append it to `.env`:
+
+```bash
+echo "CHAINLIT_AUTH_SECRET=$(chainlit create-secret)" >> .env
+```
+
+**Optional overrides** (the defaults shown are what the code uses):
+
+```env
+# LLM_PROVIDER=grove    # route through Grove proxy instead (no streaming)
+# GROVE_API_KEY=...
+COORDINATOR_MODEL=claude-sonnet-4-5
+RETRIEVAL_MODEL=claude-haiku-4-5
+WRITER_MODEL=claude-haiku-4-5
 ```
 
 ### 4. Seed the demo data
